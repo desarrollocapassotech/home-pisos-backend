@@ -66,6 +66,17 @@ export async function createPreference(order) {
     },
     auto_return: "approved",
     external_reference: order.id,
+    metadata: {
+      order_id: String(order.id),
+      order_data: JSON.stringify({
+        customer: order.customer,
+        shipping: order.shipping,
+        items: order.items,
+        subtotal: order.subtotal,
+        shippingCost: order.shippingCost,
+        total: order.total,
+      }).slice(0, 600),
+    },
     notification_url: `${backendUrl}/api/webhooks/mercadopago?source_news=webhooks`,
     statement_descriptor: "HOME PISOS VINILICOS",
   };
@@ -80,15 +91,35 @@ export async function createPreference(order) {
 /**
  * Obtiene detalles de un pago
  * @param {string} paymentId - ID del pago en Mercado Pago
- * @returns {Promise<{ status: string, external_reference: string, id: string } | null>}
+ * @returns {Promise<{ id: string, status: string, external_reference: string, preference_id?: string } | null>}
  */
 export async function getPayment(paymentId) {
   const payment = await paymentClient.get({ id: paymentId });
   if (!payment) return null;
   return {
-    id: payment.id,
+    id: String(payment.id),
     status: payment.status,
     external_reference: payment.external_reference || null,
+    preference_id: payment.metadata?.preference_id || payment.additional_info?.preference_id || null,
     status_detail: payment.status_detail,
   };
+}
+
+/**
+ * Obtiene una preferencia por ID (para reconstruir orden desde metadata si es necesario)
+ * @param {string} preferenceId
+ * @returns {Promise<{ metadata?: { order_id?: string, order_data?: string } } | null>}
+ */
+export async function getPreference(preferenceId) {
+  try {
+    const preference = await preferenceClient.get({ id: preferenceId });
+    if (!preference) return null;
+    return {
+      id: preference.id,
+      external_reference: preference.external_reference,
+      metadata: preference.metadata || {},
+    };
+  } catch {
+    return null;
+  }
 }

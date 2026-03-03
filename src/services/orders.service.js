@@ -84,6 +84,64 @@ export async function updateStatus(id, status, updatedAt) {
 }
 
 /**
+ * Busca una orden por ID de pago de Mercado Pago (evitar duplicados en webhooks)
+ */
+export async function findByMercadopagoId(mercadopagoId) {
+  if (!mercadopagoId) return null;
+  if (await useRealtimeDb()) {
+    const db = await getRealtimeDb();
+    const snapshot = await db.ref(ORDERS_PATH).orderByChild("mercadopagoId").equalTo(String(mercadopagoId)).once("value");
+    const data = snapshot.val();
+    if (!data) return null;
+    const ids = Object.keys(data);
+    if (ids.length === 0) return null;
+    const id = ids[0];
+    return { id, ...data[id] };
+  }
+  const orders = await loadFromFile();
+  return orders.find((o) => o.mercadopagoId === String(mercadopagoId)) ?? null;
+}
+
+/**
+ * Busca una orden por preference_id de Mercado Pago
+ */
+export async function findByPreferenceId(preferenceId) {
+  if (!preferenceId) return null;
+  if (await useRealtimeDb()) {
+    const db = await getRealtimeDb();
+    const snapshot = await db.ref(ORDERS_PATH).orderByChild("preferenceId").equalTo(String(preferenceId)).once("value");
+    const data = snapshot.val();
+    if (!data) return null;
+    const ids = Object.keys(data);
+    if (ids.length === 0) return null;
+    const id = ids[0];
+    return { id, ...data[id] };
+  }
+  const orders = await loadFromFile();
+  return orders.find((o) => o.preferenceId === String(preferenceId)) ?? null;
+}
+
+/**
+ * Actualiza campos de una orden existente
+ */
+export async function update(orderId, updates) {
+  if (await useRealtimeDb()) {
+    const db = await getRealtimeDb();
+    const ref = db.ref(`${ORDERS_PATH}/${orderId}`);
+    const snapshot = await ref.once("value");
+    if (!snapshot.exists()) return null;
+    await ref.update(updates);
+    return { id: orderId, ...snapshot.val(), ...updates };
+  }
+  const orders = await loadFromFile();
+  const idx = orders.findIndex((o) => o.id === orderId);
+  if (idx === -1) return null;
+  Object.assign(orders[idx], updates);
+  await saveToFile(orders);
+  return orders[idx];
+}
+
+/**
  * Actualiza el estado de una orden (para webhooks de Mercado Pago)
  * Permite persistir mercadopagoId del pago
  */

@@ -105,9 +105,46 @@ export function buildOrder(body) {
     total,
     status: ORDER_STATUS.PENDING,
     mercadopagoId: body.mercadopagoId ?? null,
+    preferenceId: body.preferenceId ?? null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
 
   return { valid: true, order };
+}
+
+/**
+ * Reconstruye una orden desde metadata de preferencia (para webhook cuando no existe orden)
+ * @param {object} metadata - { order_id?: string, order_data?: string }
+ * @param {string} mercadopagoId - ID del pago
+ * @param {string} preferenceId - ID de la preferencia
+ * @returns {object | null} Orden en formato interno o null si metadata inválida
+ */
+export function buildOrderFromMetadata(metadata, mercadopagoId, preferenceId) {
+  const orderDataStr = metadata?.order_data;
+  const orderId = metadata?.order_id || `ORD-${Date.now()}`;
+  if (!orderDataStr) return null;
+  try {
+    const data = JSON.parse(orderDataStr);
+    if (!data.customer || !data.shipping || !Array.isArray(data.items) || data.items.length === 0) {
+      return null;
+    }
+    const now = new Date().toISOString();
+    return {
+      id: orderId,
+      customer: data.customer,
+      shipping: data.shipping,
+      items: data.items,
+      subtotal: Number(data.subtotal) || 0,
+      shippingCost: Number(data.shippingCost) || 0,
+      total: Number(data.total) || 0,
+      status: ORDER_STATUS.PENDING,
+      mercadopagoId,
+      preferenceId,
+      createdAt: now,
+      updatedAt: now,
+    };
+  } catch {
+    return null;
+  }
 }
