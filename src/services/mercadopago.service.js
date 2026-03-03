@@ -17,8 +17,14 @@ const paymentClient = new Payment(client);
  * @returns {Promise<{ initPoint: string, preferenceId: string }>}
  */
 export async function createPreference(order) {
-  const frontendUrl = config.frontendUrl.replace(/\/$/, "");
-  const backendUrl = config.backendUrl.replace(/\/$/, "");
+  const frontendUrl = (config.frontendUrl || "").trim().replace(/\/$/, "");
+  const backendUrl = (config.backendUrl || "").trim().replace(/\/$/, "");
+
+  if (!frontendUrl || !frontendUrl.startsWith("http")) {
+    throw new Error(
+      "FRONTEND_URL no configurada. Definir en variables de entorno (ej: https://tudominio.com)"
+    );
+  }
 
   const preference = {
     items: [

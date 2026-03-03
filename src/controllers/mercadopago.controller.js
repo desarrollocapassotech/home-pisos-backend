@@ -30,6 +30,13 @@ export const createPreference = async (req, res, next) => {
       });
     }
 
+    if (!config.frontendUrl?.trim() || !config.frontendUrl.startsWith("http")) {
+      return res.status(503).json({
+        error: "FRONTEND_URL no configurada. Configurar en Render > Environment (ej: https://tu-sitio.onrender.com)",
+        code: "FRONTEND_URL_MISSING",
+      });
+    }
+
     // Persistir orden con estado pendiente
     await ordersService.create(order);
 

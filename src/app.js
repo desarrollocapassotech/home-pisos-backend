@@ -15,6 +15,10 @@ app.get("/", (_, res) =>
     docs: { health: "/health", orders: "/api/orders", webhooks: "/api/webhooks/mercadopago" },
   })
 );
+app.get("/api/ping", (_, res) => {
+  console.log("[Ping] Backend activo - ping recibido");
+  res.json({ active: true, message: "Backend activo" });
+});
 app.use("/api", routes);
 app.get("/health", (_, res) => res.json({ status: "ok" }));
 
