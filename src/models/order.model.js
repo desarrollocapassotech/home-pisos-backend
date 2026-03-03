@@ -19,12 +19,16 @@ export const ORDER_STATUS = {
 export function buildOrder(body) {
   const errors = [];
 
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
   // Customer
   const customer = body.customer;
   if (!customer) {
     errors.push("Falta 'customer'");
   } else {
     if (!customer.email?.trim()) errors.push("customer.email es requerido");
+    else if (!EMAIL_REGEX.test(customer.email.trim()))
+      errors.push("customer.email debe tener formato válido");
     if (!customer.phone?.trim()) errors.push("customer.phone es requerido");
     if (!customer.firstName?.trim()) errors.push("customer.firstName es requerido");
     if (!customer.lastName?.trim()) errors.push("customer.lastName es requerido");
