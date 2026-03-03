@@ -80,19 +80,29 @@ export async function create(order) {
  * Actualiza el estado de una orden
  */
 export async function updateStatus(id, status, updatedAt) {
+  return updateStatusWithPayment(id, status, updatedAt);
+}
+
+/**
+ * Actualiza el estado de una orden (para webhooks de Mercado Pago)
+ * Permite persistir mercadopagoId del pago
+ */
+export async function updateStatusWithPayment(id, status, updatedAt, mercadopagoId = null) {
+  const updates = { status, updatedAt };
+  if (mercadopagoId) updates.mercadopagoId = mercadopagoId;
+
   if (await useRealtimeDb()) {
     const db = await getRealtimeDb();
     const ref = db.ref(`${ORDERS_PATH}/${id}`);
     const snapshot = await ref.once("value");
     if (!snapshot.exists()) return null;
-    await ref.update({ status, updatedAt });
-    return { id, ...snapshot.val(), status, updatedAt };
+    await ref.update(updates);
+    return { id, ...snapshot.val(), ...updates };
   }
   const orders = await loadFromFile();
   const idx = orders.findIndex((o) => o.id === id);
   if (idx === -1) return null;
-  orders[idx].status = status;
-  orders[idx].updatedAt = updatedAt;
+  Object.assign(orders[idx], updates);
   await saveToFile(orders);
   return orders[idx];
 }

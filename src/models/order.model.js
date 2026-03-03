@@ -5,6 +5,8 @@
 
 export const ORDER_STATUS = {
   PENDING: "pending",
+  PAID: "paid",
+  REJECTED: "rejected",
   CONFIRMED: "confirmed",
   SHIPPING: "shipping",
   DELIVERED: "delivered",
