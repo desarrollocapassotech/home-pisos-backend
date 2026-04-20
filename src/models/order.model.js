@@ -99,6 +99,9 @@ export function buildOrder(body) {
       price: Number(item.product.price),
       quantity: Number(item.quantity),
       imageUrl: item.product.images?.[0] ?? null,
+      priceType: item.product.priceType ?? null,
+      m2PerBox:
+        typeof item.product.m2PerBox === "number" ? item.product.m2PerBox : null,
     })),
     subtotal,
     shippingCost,

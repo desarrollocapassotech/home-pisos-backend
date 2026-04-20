@@ -28,14 +28,25 @@ export async function createPreference(order) {
 
   const preference = {
     items: [
-      ...order.items.map((item) => ({
-        id: item.productId,
-        title: item.productName,
-        quantity: Number(item.quantity),
-        unit_price: Number(item.price),
-        picture_url: item.imageUrl || undefined,
-        currency_id: "ARS",
-      })),
+      ...order.items.map((item) => {
+        const qty = Number(item.quantity);
+        const isM2 =
+          item.priceType === "por m²" &&
+          typeof item.m2PerBox === "number" &&
+          item.m2PerBox > 0;
+        const boxWord = qty === 1 ? "caja" : "cajas";
+        const title = isM2
+          ? `${item.productName} — ${qty} ${boxWord} (${(qty * item.m2PerBox).toFixed(2)} m²)`
+          : item.productName;
+        return {
+          id: item.productId,
+          title: title.length > 127 ? `${title.slice(0, 124)}...` : title,
+          quantity: qty,
+          unit_price: Number(item.price),
+          picture_url: item.imageUrl || undefined,
+          currency_id: "ARS",
+        };
+      }),
       ...(order.shippingCost > 0
         ? [
             {
