@@ -1,6 +1,23 @@
 import { config } from "../config/index.js";
 import * as oauthService from "../services/mercadopago.oauth.js";
 
+async function fetchMPAccountInfo(accessToken) {
+  try {
+    const res = await fetch("https://api.mercadopago.com/users/me", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return {
+      userId: String(data.id),
+      email: data.email,
+      name: [data.first_name, data.last_name].filter(Boolean).join(" ") || data.nickname || null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export const getOAuthUrl = async (req, res, next) => {
   try {
     if (!config.mercadopagoClientId || !config.mercadopagoClientSecret) {
@@ -45,18 +62,28 @@ export const handleCallback = async (req, res, next) => {
 export const getConnectionStatus = async (req, res, next) => {
   try {
     const creds = await oauthService.getCredentials();
-    if (!creds?.accessToken) {
+
+    if (creds?.accessToken) {
+      const accountInfo = await fetchMPAccountInfo(creds.accessToken);
       return res.json({
-        connected: false,
-        source: config.mercadopagoAccessToken ? "env" : "none",
+        connected: true,
+        source: "oauth",
+        userId: creds.userId,
+        savedAt: creds.savedAt,
+        accountInfo,
       });
     }
-    res.json({
-      connected: true,
-      source: "oauth",
-      userId: creds.userId,
-      savedAt: creds.savedAt,
-    });
+
+    if (config.mercadopagoAccessToken) {
+      const accountInfo = await fetchMPAccountInfo(config.mercadopagoAccessToken);
+      return res.json({
+        connected: false,
+        source: "env",
+        accountInfo,
+      });
+    }
+
+    res.json({ connected: false, source: "none", accountInfo: null });
   } catch (err) {
     next(err);
   }
