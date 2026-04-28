@@ -41,3 +41,23 @@ export async function getRealtimeDb() {
 }
 
 export const ORDERS_PATH = "orders";
+export const CONFIG_PATH = "config";
+
+export async function getDbConfig(key) {
+  const db = await getRealtimeDb();
+  if (!db) return null;
+  const snapshot = await db.ref(`${CONFIG_PATH}/${key}`).once("value");
+  return snapshot.val();
+}
+
+export async function setDbConfig(key, value) {
+  const db = await getRealtimeDb();
+  if (!db) throw new Error("Firebase no disponible para guardar configuración");
+  await db.ref(`${CONFIG_PATH}/${key}`).set(value);
+}
+
+export async function deleteDbConfig(key) {
+  const db = await getRealtimeDb();
+  if (!db) throw new Error("Firebase no disponible para eliminar configuración");
+  await db.ref(`${CONFIG_PATH}/${key}`).remove();
+}

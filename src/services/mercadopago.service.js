@@ -3,13 +3,23 @@
  */
 import { MercadoPagoConfig, Preference, Payment } from "mercadopago";
 import { config } from "../config/index.js";
+import { getCredentials } from "./mercadopago.oauth.js";
 
-const client = new MercadoPagoConfig({
-  accessToken: config.mercadopagoAccessToken,
-});
+export async function getActiveAccessToken() {
+  const creds = await getCredentials();
+  if (creds?.accessToken) return creds.accessToken;
+  return config.mercadopagoAccessToken || null;
+}
 
-const preferenceClient = new Preference(client);
-const paymentClient = new Payment(client);
+async function getPreferenceClient() {
+  const token = await getActiveAccessToken();
+  return new Preference(new MercadoPagoConfig({ accessToken: token }));
+}
+
+async function getPaymentClient() {
+  const token = await getActiveAccessToken();
+  return new Payment(new MercadoPagoConfig({ accessToken: token }));
+}
 
 /**
  * Crea una preferencia de pago (Checkout Pro)
@@ -92,6 +102,7 @@ export async function createPreference(order) {
     statement_descriptor: "HOME PISOS VINILICOS",
   };
 
+  const preferenceClient = await getPreferenceClient();
   const response = await preferenceClient.create({ body: preference });
   return {
     initPoint: response.init_point,
@@ -105,6 +116,7 @@ export async function createPreference(order) {
  * @returns {Promise<{ id: string, status: string, external_reference: string, preference_id?: string } | null>}
  */
 export async function getPayment(paymentId) {
+  const paymentClient = await getPaymentClient();
   const payment = await paymentClient.get({ id: paymentId });
   if (!payment) return null;
   return {
@@ -123,6 +135,7 @@ export async function getPayment(paymentId) {
  */
 export async function getPreference(preferenceId) {
   try {
+    const preferenceClient = await getPreferenceClient();
     const preference = await preferenceClient.get({ id: preferenceId });
     if (!preference) return null;
     return {

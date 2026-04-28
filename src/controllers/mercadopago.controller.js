@@ -23,9 +23,10 @@ export const createPreference = async (req, res, next) => {
       });
     }
 
-    if (!config.mercadopagoAccessToken) {
+    const activeToken = await mercadopagoService.getActiveAccessToken();
+    if (!activeToken) {
       return res.status(503).json({
-        error: "Mercado Pago no está configurado",
+        error: "Mercado Pago no está configurado. Conectá la cuenta desde el panel de administración.",
         code: "MP_NOT_CONFIGURED",
       });
     }
