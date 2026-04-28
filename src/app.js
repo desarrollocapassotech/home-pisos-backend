@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import routes from "./routes/index.js";
 import { errorHandler } from "./middleware/errorHandler.js";
+import { getRealtimeDb, getFirebaseInitError } from "./config/firebase.js";
 
 const app = express();
 
@@ -21,6 +22,16 @@ app.get("/api/ping", (_, res) => {
 });
 app.use("/api", routes);
 app.get("/health", (_, res) => res.json({ status: "ok" }));
+app.get("/api/debug/firebase", async (_, res) => {
+  const db = await getRealtimeDb();
+  res.json({
+    connected: !!db,
+    initError: getFirebaseInitError(),
+    hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT,
+    hasGoogleCredentials: !!process.env.GOOGLE_APPLICATION_CREDENTIALS,
+    databaseUrl: process.env.FIREBASE_DATABASE_URL || "(default)",
+  });
+});
 
 app.use(errorHandler);
 

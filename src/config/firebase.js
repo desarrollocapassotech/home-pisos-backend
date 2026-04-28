@@ -4,14 +4,20 @@
  * Si firebase-admin no está instalado o no hay credenciales, retorna null (usa archivo).
  */
 let db = undefined;
+let initError = null;
 
 const DATABASE_URL = process.env.FIREBASE_DATABASE_URL || "https://home-pisos-vinilicos-default-rtdb.firebaseio.com";
 
 async function initRealtimeDb() {
   if (db !== undefined) return db;
+  console.log("[Firebase] Iniciando conexión...");
+  console.log("[Firebase] DATABASE_URL:", DATABASE_URL);
+  console.log("[Firebase] FIREBASE_SERVICE_ACCOUNT set:", !!process.env.FIREBASE_SERVICE_ACCOUNT);
+  console.log("[Firebase] GOOGLE_APPLICATION_CREDENTIALS set:", !!process.env.GOOGLE_APPLICATION_CREDENTIALS);
   try {
     const admin = await import("firebase-admin").catch(() => null);
     if (!admin) {
+      console.error("[Firebase] firebase-admin no disponible");
       db = null;
       return null;
     }
@@ -26,14 +32,22 @@ async function initRealtimeDb() {
         databaseURL: DATABASE_URL,
       });
     } else {
+      console.error("[Firebase] No hay credenciales configuradas (FIREBASE_SERVICE_ACCOUNT ni GOOGLE_APPLICATION_CREDENTIALS)");
       db = null;
       return null;
     }
     db = admin.default.database();
+    console.log("[Firebase] Conexión exitosa");
   } catch (err) {
+    console.error("[Firebase] Error al inicializar:", err.message, err.stack);
+    initError = err.message;
     db = null;
   }
   return db;
+}
+
+export function getFirebaseInitError() {
+  return initError;
 }
 
 export async function getRealtimeDb() {
