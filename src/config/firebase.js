@@ -21,9 +21,7 @@ async function initRealtimeDb() {
       db = null;
       return null;
     }
-    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-      admin.default.initializeApp({ databaseURL: DATABASE_URL });
-    } else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
       const credentials = JSON.parse(
         Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT, "base64").toString("utf8")
       );
@@ -31,6 +29,8 @@ async function initRealtimeDb() {
         credential: admin.default.credential.cert(credentials),
         databaseURL: DATABASE_URL,
       });
+    } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+      admin.default.initializeApp({ databaseURL: DATABASE_URL });
     } else {
       console.error("[Firebase] No hay credenciales configuradas (FIREBASE_SERVICE_ACCOUNT ni GOOGLE_APPLICATION_CREDENTIALS)");
       db = null;
