@@ -3,7 +3,7 @@
  * Requiere GOOGLE_APPLICATION_CREDENTIALS o FIREBASE_SERVICE_ACCOUNT (base64).
  * Si firebase-admin no está instalado o no hay credenciales, retorna null (usa archivo).
  */
-let db = null;
+let db = undefined;
 
 const DATABASE_URL = process.env.FIREBASE_DATABASE_URL || "https://home-pisos-vinilicos-default-rtdb.firebaseio.com";
 
