@@ -102,6 +102,7 @@ export function buildOrder(body) {
       priceType: item.product.priceType ?? null,
       m2PerBox:
         typeof item.product.m2PerBox === "number" ? item.product.m2PerBox : null,
+      selectedUnit: item.product.selectedUnit ?? null,
     })),
     subtotal,
     shippingCost,
