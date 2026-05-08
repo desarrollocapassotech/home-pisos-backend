@@ -100,9 +100,9 @@ export function buildOrder(body) {
       quantity: Number(item.quantity),
       imageUrl: item.product.images?.[0] ?? null,
       priceType: item.product.priceType ?? null,
-      m2PerBox:
-        typeof item.product.m2PerBox === "number" ? item.product.m2PerBox : null,
-      selectedUnit: item.product.selectedUnit ?? null,
+      m2PerBox: typeof item.product.m2PerBox === "number" ? item.product.m2PerBox : null,
+      unitsPerBox: typeof item.product.unitsPerBox === "number" ? item.product.unitsPerBox : null,
+      purchaseUnit: item.product.selectedUnit ?? null,
     })),
     subtotal,
     shippingCost,
