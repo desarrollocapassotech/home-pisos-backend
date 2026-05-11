@@ -42,22 +42,57 @@ export const createPreference = async (req, res, next) => {
       });
     }
 
-    // Persistir orden con estado pendiente
-    await ordersService.create(order);
+    // Reutilización de orden: si el cliente envió un `existingOrderId` que todavía
+    // está en estado `pending`, actualizamos esa orden en lugar de crear una nueva.
+    // Evita acumular pedidos huérfanos cuando el usuario vuelve desde MP sin pagar.
+    const requestedExistingId =
+      typeof req.body?.existingOrderId === "string" && req.body.existingOrderId.trim()
+        ? req.body.existingOrderId.trim()
+        : null;
 
-    // Crear preferencia en Mercado Pago
-    const { initPoint, preferenceId } = await mercadopagoService.createPreference(order);
+    let finalOrder = order;
+    let reusedExisting = false;
 
-    // Asociar preferenceId a la orden para búsqueda por webhook
-    await ordersService.update(order.id, {
+    if (requestedExistingId) {
+      const existing = await ordersService.findById(requestedExistingId);
+      if (existing && existing.status === ORDER_STATUS.PENDING) {
+        const { id: _ignoredId, createdAt: _ignoredCreatedAt, ...orderWithoutIds } = order;
+        const updates = {
+          ...orderWithoutIds,
+          status: ORDER_STATUS.PENDING,
+          updatedAt: new Date().toISOString(),
+          preferenceId: null,
+        };
+        await ordersService.update(existing.id, updates);
+        finalOrder = { ...existing, ...updates, id: existing.id };
+        reusedExisting = true;
+        console.log("[MP] Reutilizando orden pendiente:", existing.id);
+      } else if (existing && existing.status !== ORDER_STATUS.PENDING) {
+        console.log(
+          "[MP] existingOrderId recibido pero la orden no está pending, creando una nueva:",
+          requestedExistingId,
+          "status:",
+          existing.status
+        );
+      }
+    }
+
+    if (!reusedExisting) {
+      await ordersService.create(finalOrder);
+    }
+
+    const { initPoint, preferenceId } = await mercadopagoService.createPreference(finalOrder);
+
+    await ordersService.update(finalOrder.id, {
       preferenceId,
       updatedAt: new Date().toISOString(),
     });
 
-    res.status(201).json({
-      orderId: order.id,
+    res.status(reusedExisting ? 200 : 201).json({
+      orderId: finalOrder.id,
       preferenceId,
       initPoint,
+      reused: reusedExisting,
     });
   } catch (err) {
     next(err);
