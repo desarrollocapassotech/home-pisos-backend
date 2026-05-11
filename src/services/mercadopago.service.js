@@ -6,14 +6,62 @@ import { config } from "../config/index.js";
 import { getCredentials } from "./mercadopago.oauth.js";
 
 export async function getActiveAccessToken() {
-  const creds = await getCredentials();
+  let creds = null;
+  try {
+    creds = await getCredentials();
+  } catch (err) {
+    console.error("[MP] Error leyendo credenciales OAuth desde Firebase:", err.message);
+  }
   if (creds?.accessToken) return creds.accessToken;
-  return config.mercadopagoAccessToken || null;
+  if (config.mercadopagoAccessToken) return config.mercadopagoAccessToken;
+  return null;
+}
+
+/**
+ * Diagnóstico para entender por qué no hay token activo.
+ */
+export async function getAccessTokenSourceStatus() {
+  let oauthError = null;
+  let creds = null;
+  try {
+    creds = await getCredentials();
+  } catch (err) {
+    oauthError = err.message;
+  }
+  return {
+    oauthConnected: !!creds?.accessToken,
+    oauthError,
+    envTokenSet: !!config.mercadopagoAccessToken,
+    clientIdSet: !!config.mercadopagoClientId,
+    clientSecretSet: !!config.mercadopagoClientSecret,
+  };
 }
 
 async function getPreferenceClient() {
   const token = await getActiveAccessToken();
   return new Preference(new MercadoPagoConfig({ accessToken: token }));
+}
+
+/**
+ * Mercado Pago rechaza `auto_return` cuando las back_urls no son URLs públicas
+ * (localhost, IPs privadas, hostnames sin TLD). En esos casos devolvemos false
+ * para omitir `auto_return` y permitir testing en local sin un túnel.
+ */
+function isPublicHttpUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (!["http:", "https:"].includes(parsed.protocol)) return false;
+    const host = parsed.hostname.toLowerCase();
+    if (host === "localhost" || host === "0.0.0.0") return false;
+    if (/^127\./.test(host)) return false;
+    if (/^10\./.test(host)) return false;
+    if (/^192\.168\./.test(host)) return false;
+    if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(host)) return false;
+    if (!host.includes(".")) return false;
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function getPaymentClient() {
@@ -33,6 +81,19 @@ export async function createPreference(order) {
   if (!frontendUrl || !frontendUrl.startsWith("http")) {
     throw new Error(
       "FRONTEND_URL no configurada. Definir en variables de entorno (ej: https://tudominio.com)"
+    );
+  }
+
+  const backUrls = {
+    success: `${frontendUrl}/checkout/success`,
+    failure: `${frontendUrl}/checkout/failure`,
+    pending: `${frontendUrl}/checkout/pending`,
+  };
+
+  const canUseAutoReturn = Object.values(backUrls).every(isPublicHttpUrl);
+  if (!canUseAutoReturn) {
+    console.warn(
+      "[MP] back_urls no son públicas, omitiendo auto_return (modo dev). Para activar auto_return en producción, configurá FRONTEND_URL con un dominio https público."
     );
   }
 
@@ -80,12 +141,8 @@ export async function createPreference(order) {
         zip_code: order.shipping.postalCode,
       },
     },
-    back_urls: {
-      success: `${frontendUrl}/checkout/success`,
-      failure: `${frontendUrl}/checkout/failure`,
-      pending: `${frontendUrl}/checkout/pending`,
-    },
-    auto_return: "approved",
+    back_urls: backUrls,
+    ...(canUseAutoReturn ? { auto_return: "approved" } : {}),
     external_reference: order.id,
     metadata: {
       order_id: String(order.id),
@@ -98,7 +155,9 @@ export async function createPreference(order) {
         total: order.total,
       }).slice(0, 600),
     },
-    notification_url: `${backendUrl}/api/webhooks/mercadopago?source_news=webhooks`,
+    ...(isPublicHttpUrl(backendUrl)
+      ? { notification_url: `${backendUrl}/api/webhooks/mercadopago?source_news=webhooks` }
+      : {}),
     statement_descriptor: "HOME PISOS VINILICOS",
   };
 
