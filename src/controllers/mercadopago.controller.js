@@ -25,9 +25,13 @@ export const createPreference = async (req, res, next) => {
 
     const activeToken = await mercadopagoService.getActiveAccessToken();
     if (!activeToken) {
+      const status = await mercadopagoService.getAccessTokenSourceStatus();
+      console.error("[MP] No hay token activo. Estado de credenciales:", status);
       return res.status(503).json({
-        error: "Mercado Pago no está configurado. Conectá la cuenta desde el panel de administración.",
+        error:
+          "Mercado Pago no está configurado. Conectá la cuenta desde el panel de administración o definí MERCADOPAGO_ACCESS_TOKEN.",
         code: "MP_NOT_CONFIGURED",
+        details: status,
       });
     }
 
