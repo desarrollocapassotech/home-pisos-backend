@@ -75,7 +75,7 @@ async function getPaymentClient() {
  * @returns {Promise<{ initPoint: string, preferenceId: string }>}
  */
 export async function createPreference(order) {
-  const frontendUrl = (config.frontendUrl || "").trim().replace(/\/$/, "");
+  const frontendUrl = (order.frontendUrl || config.frontendUrl || "").trim().replace(/\/$/, "");
   const backendUrl = (config.backendUrl || "").trim().replace(/\/$/, "");
 
   if (!frontendUrl || !frontendUrl.startsWith("http")) {
