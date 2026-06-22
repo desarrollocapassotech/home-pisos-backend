@@ -121,22 +121,37 @@ async function sendWithHtml(to, subject, html) {
 }
 
 export async function sendOrderPaid(order) {
+  const sharedVars = {
+    orderId: order.id,
+    itemsHtml: itemsRows(order.items),
+    subtotal: formatPrice(order.subtotal),
+    shippingCost: order.shippingCost > 0 ? formatPrice(order.shippingCost) : "Gratis",
+    total: formatPrice(order.total),
+    shippingAddress: shippingLine(order),
+    shippingMethod: order.shipping.method?.name || "A coordinar",
+  };
+
   await sendWithTemplate(
     order.customer.email,
     `✅ Pedido confirmado #${order.id} – Home Pisos Vinílicos`,
     config.resendTemplatePaidId,
-    {
-      customerName: order.customer.firstName,
-      orderId: order.id,
-      itemsHtml: itemsRows(order.items),
-      subtotal: formatPrice(order.subtotal),
-      shippingCost: order.shippingCost > 0 ? formatPrice(order.shippingCost) : "Gratis",
-      total: formatPrice(order.total),
-      shippingAddress: shippingLine(order),
-      shippingMethod: order.shipping.method?.name || "A coordinar",
-      adminUrl: config.adminUrl,
-    }
+    { ...sharedVars, customerName: order.customer.firstName }
   );
+
+  if (config.adminEmail) {
+    await sendWithTemplate(
+      config.adminEmail,
+      `🛒 Nuevo pedido #${order.id} – ${order.customer.firstName} ${order.customer.lastName}`,
+      config.resendTemplateAdminId,
+      {
+        ...sharedVars,
+        customerName: `${order.customer.firstName} ${order.customer.lastName}`,
+        customerEmail: order.customer.email,
+        customerPhone: order.customer.phone,
+        adminUrl: config.adminUrl,
+      }
+    );
+  }
 }
 
 export async function sendOrderPending(order) {

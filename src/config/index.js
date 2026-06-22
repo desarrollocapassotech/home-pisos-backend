@@ -10,6 +10,8 @@ export const config = {
   emailEnabled: process.env.EMAIL_ENABLED === "true",
   resendApiKey: process.env.RESEND_API_KEY,
   resendTemplatePaidId: process.env.RESEND_TEMPLATE_PAID_ID,
+  resendTemplateAdminId: process.env.RESEND_TEMPLATE_ADMIN_ID,
+  adminEmail: process.env.ADMIN_EMAIL,
   emailFrom: process.env.EMAIL_FROM,
   emailFromName: process.env.EMAIL_FROM_NAME || "Home Pisos Vinílicos",
 };
