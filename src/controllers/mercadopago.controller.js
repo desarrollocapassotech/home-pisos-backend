@@ -4,6 +4,7 @@
 import { buildOrder, buildOrderFromMetadata } from "../models/order.model.js";
 import * as ordersService from "../services/orders.service.js";
 import * as mercadopagoService from "../services/mercadopago.service.js";
+import * as emailService from "../services/email.service.js";
 import { ORDER_STATUS } from "../models/order.model.js";
 import { config } from "../config/index.js";
 import crypto from "crypto";
@@ -243,6 +244,22 @@ export const handleWebhook = async (req, res, next) => {
     );
 
     console.log("[Webhook MP] Orden actualizada", { orderId: order.id, status: newStatus, mercadopagoId: paymentIdStr });
+
+    // Enviar email de notificación al cliente (best-effort: no bloquea la respuesta)
+    const orderForEmail = { ...order, ...updatedOrder, status: newStatus };
+    if (newStatus === ORDER_STATUS.PAID) {
+      emailService.sendOrderPaid(orderForEmail).catch((err) =>
+        console.error("[Email] Error al enviar confirmación de pago:", err.message)
+      );
+    } else if (newStatus === ORDER_STATUS.REJECTED) {
+      emailService.sendOrderRejected(orderForEmail).catch((err) =>
+        console.error("[Email] Error al enviar notificación de rechazo:", err.message)
+      );
+    } else if (newStatus === ORDER_STATUS.PENDING) {
+      emailService.sendOrderPending(orderForEmail).catch((err) =>
+        console.error("[Email] Error al enviar notificación de pago pendiente:", err.message)
+      );
+    }
 
     res.status(200).json({ received: true, orderId: order.id, status: newStatus });
   } catch (err) {

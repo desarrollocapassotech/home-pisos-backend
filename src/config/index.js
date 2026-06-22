@@ -7,4 +7,9 @@ export const config = {
   frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173",
   backendUrl: process.env.BACKEND_URL || "http://localhost:3001",
   adminUrl: process.env.ADMIN_URL || "http://localhost:5174",
+  emailEnabled: process.env.EMAIL_ENABLED === "true",
+  resendApiKey: process.env.RESEND_API_KEY,
+  resendTemplatePaidId: process.env.RESEND_TEMPLATE_PAID_ID,
+  emailFrom: process.env.EMAIL_FROM,
+  emailFromName: process.env.EMAIL_FROM_NAME || "Home Pisos Vinílicos",
 };
