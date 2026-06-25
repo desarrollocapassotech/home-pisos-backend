@@ -1,8 +1,12 @@
 import "./loadEnv.js";
+import { validateEnvAtStartup } from "./config/validateEnv.js";
 import app from "./app.js";
+import { config } from "./config/index.js";
 
-const PORT = process.env.PORT || 3001;
+validateEnvAtStartup();
+
+const PORT = config.port;
 
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`[Server] NODE_ENV=${config.nodeEnv} — http://localhost:${PORT}`);
 });
