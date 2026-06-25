@@ -4,7 +4,7 @@
 import { readFile, writeFile, mkdir } from "fs/promises";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { getRealtimeDb, ORDERS_PATH } from "../config/firebase.js";
+import { getRealtimeDb, readRefOnceSafe, ORDERS_PATH } from "../config/firebase.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(__dirname, "../../data");
@@ -29,20 +29,34 @@ async function saveToFile(orders) {
   await writeFile(ORDERS_FILE, JSON.stringify(orders, null, 2));
 }
 
+function sortOrdersNewestFirst(orders) {
+  return orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+function firstOrderFromQueryVal(data) {
+  if (!data) return null;
+  const ids = Object.keys(data);
+  if (ids.length === 0) return null;
+  const id = ids[0];
+  return { id, ...data[id] };
+}
+
 /**
  * Lista todas las órdenes ordenadas por fecha (más recientes primero)
  */
 export async function findAll() {
   if (await useRealtimeDb()) {
-    const db = await getRealtimeDb();
-    const snapshot = await db.ref(ORDERS_PATH).once("value");
-    const data = snapshot.val();
+    const result = await readRefOnceSafe(ORDERS_PATH, { label: ORDERS_PATH });
+    if (!result.ok) {
+      console.warn("[Orders] Firebase read failed, usando fallback archivo:", result.error);
+      return sortOrdersNewestFirst(await loadFromFile());
+    }
+    const data = result.val;
     if (!data) return [];
     const orders = Object.entries(data).map(([id, order]) => ({ id, ...order }));
-    return orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    return sortOrdersNewestFirst(orders);
   }
-  const orders = await loadFromFile();
-  return orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  return sortOrdersNewestFirst(await loadFromFile());
 }
 
 /**
@@ -50,11 +64,16 @@ export async function findAll() {
  */
 export async function findById(id) {
   if (await useRealtimeDb()) {
-    const db = await getRealtimeDb();
-    const snapshot = await db.ref(`${ORDERS_PATH}/${id}`).once("value");
-    const data = snapshot.val();
-    if (!data) return null;
-    return { id, ...data };
+    const result = await readRefOnceSafe(`${ORDERS_PATH}/${id}`, {
+      label: `${ORDERS_PATH}/${id}`,
+    });
+    if (!result.ok) {
+      console.warn("[Orders] Firebase read failed, usando fallback archivo:", result.error);
+      const orders = await loadFromFile();
+      return orders.find((o) => o.id === id) ?? null;
+    }
+    if (!result.val) return null;
+    return { id, ...result.val };
   }
   const orders = await loadFromFile();
   return orders.find((o) => o.id === id) ?? null;
@@ -89,14 +108,18 @@ export async function updateStatus(id, status, updatedAt) {
 export async function findByMercadopagoId(mercadopagoId) {
   if (!mercadopagoId) return null;
   if (await useRealtimeDb()) {
-    const db = await getRealtimeDb();
-    const snapshot = await db.ref(ORDERS_PATH).orderByChild("mercadopagoId").equalTo(String(mercadopagoId)).once("value");
-    const data = snapshot.val();
-    if (!data) return null;
-    const ids = Object.keys(data);
-    if (ids.length === 0) return null;
-    const id = ids[0];
-    return { id, ...data[id] };
+    const mpId = String(mercadopagoId);
+    const result = await readRefOnceSafe(
+      (database) =>
+        database.ref(ORDERS_PATH).orderByChild("mercadopagoId").equalTo(mpId),
+      { label: `${ORDERS_PATH}?mercadopagoId=${mpId}` }
+    );
+    if (!result.ok) {
+      console.warn("[Orders] Firebase query failed, usando fallback archivo:", result.error);
+      const orders = await loadFromFile();
+      return orders.find((o) => o.mercadopagoId === mpId) ?? null;
+    }
+    return firstOrderFromQueryVal(result.val);
   }
   const orders = await loadFromFile();
   return orders.find((o) => o.mercadopagoId === String(mercadopagoId)) ?? null;
@@ -108,14 +131,18 @@ export async function findByMercadopagoId(mercadopagoId) {
 export async function findByPreferenceId(preferenceId) {
   if (!preferenceId) return null;
   if (await useRealtimeDb()) {
-    const db = await getRealtimeDb();
-    const snapshot = await db.ref(ORDERS_PATH).orderByChild("preferenceId").equalTo(String(preferenceId)).once("value");
-    const data = snapshot.val();
-    if (!data) return null;
-    const ids = Object.keys(data);
-    if (ids.length === 0) return null;
-    const id = ids[0];
-    return { id, ...data[id] };
+    const prefId = String(preferenceId);
+    const result = await readRefOnceSafe(
+      (database) =>
+        database.ref(ORDERS_PATH).orderByChild("preferenceId").equalTo(prefId),
+      { label: `${ORDERS_PATH}?preferenceId=${prefId}` }
+    );
+    if (!result.ok) {
+      console.warn("[Orders] Firebase query failed, usando fallback archivo:", result.error);
+      const orders = await loadFromFile();
+      return orders.find((o) => o.preferenceId === prefId) ?? null;
+    }
+    return firstOrderFromQueryVal(result.val);
   }
   const orders = await loadFromFile();
   return orders.find((o) => o.preferenceId === String(preferenceId)) ?? null;
@@ -128,10 +155,21 @@ export async function update(orderId, updates) {
   if (await useRealtimeDb()) {
     const db = await getRealtimeDb();
     const ref = db.ref(`${ORDERS_PATH}/${orderId}`);
-    const snapshot = await ref.once("value");
-    if (!snapshot.exists()) return null;
+    const result = await readRefOnceSafe(`${ORDERS_PATH}/${orderId}`, {
+      label: `${ORDERS_PATH}/${orderId}`,
+    });
+    if (!result.ok) {
+      console.warn("[Orders] Firebase read failed en update, usando fallback archivo:", result.error);
+      const orders = await loadFromFile();
+      const idx = orders.findIndex((o) => o.id === orderId);
+      if (idx === -1) return null;
+      Object.assign(orders[idx], updates);
+      await saveToFile(orders);
+      return orders[idx];
+    }
+    if (!result.exists) return null;
     await ref.update(updates);
-    return { id: orderId, ...snapshot.val(), ...updates };
+    return { id: orderId, ...result.val, ...updates };
   }
   const orders = await loadFromFile();
   const idx = orders.findIndex((o) => o.id === orderId);
@@ -152,10 +190,21 @@ export async function updateStatusWithPayment(id, status, updatedAt, mercadopago
   if (await useRealtimeDb()) {
     const db = await getRealtimeDb();
     const ref = db.ref(`${ORDERS_PATH}/${id}`);
-    const snapshot = await ref.once("value");
-    if (!snapshot.exists()) return null;
+    const result = await readRefOnceSafe(`${ORDERS_PATH}/${id}`, {
+      label: `${ORDERS_PATH}/${id}`,
+    });
+    if (!result.ok) {
+      console.warn("[Orders] Firebase read failed en updateStatus, usando fallback archivo:", result.error);
+      const orders = await loadFromFile();
+      const idx = orders.findIndex((o) => o.id === id);
+      if (idx === -1) return null;
+      Object.assign(orders[idx], updates);
+      await saveToFile(orders);
+      return orders[idx];
+    }
+    if (!result.exists) return null;
     await ref.update(updates);
-    return { id, ...snapshot.val(), ...updates };
+    return { id, ...result.val, ...updates };
   }
   const orders = await loadFromFile();
   const idx = orders.findIndex((o) => o.id === id);
