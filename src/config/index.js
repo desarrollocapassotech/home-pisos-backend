@@ -38,4 +38,13 @@ export const config = {
   firebaseProjectId: trimEnv(process.env.FIREBASE_PROJECT_ID),
   firebaseClientEmail: trimEnv(process.env.FIREBASE_CLIENT_EMAIL),
   firebasePrivateKey: trimEnv(process.env.FIREBASE_PRIVATE_KEY),
+
+  // Email (Resend)
+  emailEnabled: process.env.EMAIL_ENABLED === "true",
+  resendApiKey: trimEnv(process.env.RESEND_API_KEY),
+  resendTemplatePaidId: trimEnv(process.env.RESEND_TEMPLATE_PAID_ID),
+  resendTemplateAdminId: trimEnv(process.env.RESEND_TEMPLATE_ADMIN_ID),
+  adminEmail: trimEnv(process.env.ADMIN_EMAIL),
+  emailFrom: trimEnv(process.env.EMAIL_FROM),
+  emailFromName: trimEnv(process.env.EMAIL_FROM_NAME) || "Home Pisos Vinílicos",
 };
