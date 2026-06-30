@@ -82,7 +82,10 @@ export const createPreference = async (req, res, next) => {
       await ordersService.create(finalOrder);
     }
 
-    const { initPoint, preferenceId } = await mercadopagoService.createPreference(finalOrder);
+    const { initPoint, preferenceId } = await mercadopagoService.createPreference({
+      ...finalOrder,
+      frontendUrl: req.body.frontendUrl
+    });
 
     await ordersService.update(finalOrder.id, {
       preferenceId,

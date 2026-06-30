@@ -5,10 +5,14 @@ import * as ordersService from "../services/orders.service.js";
  * GET /api/orders - Lista todas las órdenes
  */
 export const getOrders = async (req, res, next) => {
+  const started = Date.now();
+  console.log("[GET /api/orders] inicio");
   try {
     const orders = await ordersService.findAll();
+    console.log(`[GET /api/orders] ok — ${orders.length} órdenes (${Date.now() - started}ms)`);
     res.json(orders);
   } catch (err) {
+    console.error(`[GET /api/orders] error (${Date.now() - started}ms):`, err.message);
     next(err);
   }
 };

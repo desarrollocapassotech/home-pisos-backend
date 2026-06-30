@@ -5,6 +5,7 @@ async function fetchMPAccountInfo(accessToken) {
   try {
     const res = await fetch("https://api.mercadopago.com/users/me", {
       headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -13,7 +14,8 @@ async function fetchMPAccountInfo(accessToken) {
       email: data.email,
       name: [data.first_name, data.last_name].filter(Boolean).join(" ") || data.nickname || null,
     };
-  } catch {
+  } catch (err) {
+    console.warn("[MP] fetchMPAccountInfo falló:", err.message);
     return null;
   }
 }
@@ -60,11 +62,17 @@ export const handleCallback = async (req, res, next) => {
 };
 
 export const getConnectionStatus = async (req, res, next) => {
+  const started = Date.now();
+  console.log("[GET /api/mercadopago/status] inicio");
   try {
+    console.log("[GET /api/mercadopago/status] leyendo credenciales Firebase...");
     const creds = await oauthService.getCredentials();
+    console.log(`[GET /api/mercadopago/status] credenciales OAuth: ${creds?.accessToken ? "sí" : "no"} (${Date.now() - started}ms)`);
 
     if (creds?.accessToken) {
+      console.log("[GET /api/mercadopago/status] consultando MP /users/me...");
       const accountInfo = await fetchMPAccountInfo(creds.accessToken);
+      console.log(`[GET /api/mercadopago/status] ok oauth (${Date.now() - started}ms)`);
       return res.json({
         connected: true,
         source: "oauth",
@@ -75,7 +83,9 @@ export const getConnectionStatus = async (req, res, next) => {
     }
 
     if (config.mercadopagoAccessToken) {
+      console.log("[GET /api/mercadopago/status] consultando MP /users/me (env token)...");
       const accountInfo = await fetchMPAccountInfo(config.mercadopagoAccessToken);
+      console.log(`[GET /api/mercadopago/status] ok env (${Date.now() - started}ms)`);
       return res.json({
         connected: false,
         source: "env",
@@ -83,8 +93,10 @@ export const getConnectionStatus = async (req, res, next) => {
       });
     }
 
+    console.log(`[GET /api/mercadopago/status] sin credenciales (${Date.now() - started}ms)`);
     res.json({ connected: false, source: "none", accountInfo: null });
   } catch (err) {
+    console.error(`[GET /api/mercadopago/status] error (${Date.now() - started}ms):`, err.message);
     next(err);
   }
 };

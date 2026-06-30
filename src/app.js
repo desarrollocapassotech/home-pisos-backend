@@ -25,9 +25,15 @@ app.get("/health", (_, res) => res.json({ status: "ok" }));
 app.get("/api/debug/firebase", async (_, res) => {
   const db = await getRealtimeDb();
   res.json({
+    nodeEnv: process.env.NODE_ENV || "development",
     connected: !!db,
     initError: getFirebaseInitError(),
     hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT,
+    hasIndividualFirebaseCreds: !!(
+      process.env.FIREBASE_PROJECT_ID &&
+      process.env.FIREBASE_CLIENT_EMAIL &&
+      process.env.FIREBASE_PRIVATE_KEY
+    ),
     hasGoogleCredentials: !!process.env.GOOGLE_APPLICATION_CREDENTIALS,
     databaseUrl: process.env.FIREBASE_DATABASE_URL || "(default)",
   });

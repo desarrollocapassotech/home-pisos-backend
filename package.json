@@ -6,7 +6,9 @@
   "type": "module",
   "scripts": {
     "start": "cross-env NODE_ENV=production node src/index.js",
-    "dev": "cross-env NODE_ENV=development node --watch src/index.js"
+    "start:qa": "cross-env NODE_ENV=qa node src/index.js",
+    "dev": "cross-env NODE_ENV=development node --watch src/index.js",
+    "dev:qa": "cross-env NODE_ENV=qa node --watch src/index.js"
   },
   "keywords": [
     "ecommerce",
