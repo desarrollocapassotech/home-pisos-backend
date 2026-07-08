@@ -97,8 +97,10 @@ async function sendWithTemplate(to, subject, templateId, variables) {
     from: `${config.emailFromName} <${config.emailFrom}>`,
     to,
     subject,
-    template_id: templateId,
-    data: variables,
+    template: {
+      id: templateId,
+      variables,
+    },
   });
   if (error) throw new Error(error.message);
   console.log(`[Email] Enviado (template) a ${to}: ${subject}`);
