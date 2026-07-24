@@ -33,6 +33,23 @@ function sortOrdersNewestFirst(orders) {
   return orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 }
 
+/**
+ * Construye el historial de estados apilando el nuevo cambio.
+ * Si la orden no tenía historial (órdenes legadas), lo inicializa con el
+ * estado/fecha original antes de agregar el nuevo. Evita entradas duplicadas
+ * consecutivas del mismo estado.
+ */
+function buildStatusHistory(existing, status, at) {
+  const prev = Array.isArray(existing?.statusHistory) ? existing.statusHistory : [];
+  const base =
+    prev.length > 0
+      ? prev
+      : [{ status: existing?.status ?? status, at: existing?.createdAt ?? at }];
+  const last = base[base.length - 1];
+  if (last && last.status === status) return base;
+  return [...base, { status, at }];
+}
+
 function firstOrderFromQueryVal(data) {
   if (!data) return null;
   const ids = Object.keys(data);
@@ -198,18 +215,21 @@ export async function updateStatusWithPayment(id, status, updatedAt, mercadopago
       const orders = await loadFromFile();
       const idx = orders.findIndex((o) => o.id === id);
       if (idx === -1) return null;
-      Object.assign(orders[idx], updates);
+      const fileUpdates = { ...updates, statusHistory: buildStatusHistory(orders[idx], status, updatedAt) };
+      Object.assign(orders[idx], fileUpdates);
       await saveToFile(orders);
       return orders[idx];
     }
     if (!result.exists) return null;
-    await ref.update(updates);
-    return { id, ...result.val, ...updates };
+    const dbUpdates = { ...updates, statusHistory: buildStatusHistory(result.val, status, updatedAt) };
+    await ref.update(dbUpdates);
+    return { id, ...result.val, ...dbUpdates };
   }
   const orders = await loadFromFile();
   const idx = orders.findIndex((o) => o.id === id);
   if (idx === -1) return null;
-  Object.assign(orders[idx], updates);
+  const fileUpdates = { ...updates, statusHistory: buildStatusHistory(orders[idx], status, updatedAt) };
+  Object.assign(orders[idx], fileUpdates);
   await saveToFile(orders);
   return orders[idx];
 }
